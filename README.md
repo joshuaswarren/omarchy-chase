@@ -106,6 +106,19 @@ HookEcho reads `gpsd` itself (its "Connect GPS (gpsd)" button, daemon on
 network source instead: File > Settings > General > GPS Plugin > NMEA >
 `socket://127.0.0.1:2948`.
 
+## The bar widget
+
+```sh
+omarchy plugin add https://github.com/joshuaswarren/omarchy-chase --enable
+```
+
+The widget reads `● chase +`: a filled dot while a session is running, then
+the GPS mark — `+` fix, `…` acquiring, `×` no receiver, `–` gpsd off.
+Clicking it opens the session panel: GPS, network (with metered flag),
+viewer state and its alert count, and Start/Stop for the session. The panel
+always shows the one thing to do next; `?` in its title row explains what
+this project is and what every glyph means. `Esc` closes it.
+
 ## Related
 
 - [Omastorm](https://github.com/wesleygrimes/omastorm), the Omarchy radar

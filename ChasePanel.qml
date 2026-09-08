@@ -27,6 +27,7 @@ Panel {
 
   property var snap: ({})
   property string note: ""
+  property bool helpOpen: false
 
   function refresh() {
     if (snapshotProcess.running || root.helper === "") return
@@ -68,6 +69,30 @@ Panel {
     if (v.summary) s += " · " + v.summary
     return s
   }
+
+  // The one thing to do next, derived from the state on screen. A panel that
+  // reports "GPS off" and stops there leaves the user to guess the command.
+  function hintText() {
+    var g = root.snap.gps || {}
+    var v = root.snap.viewer || {}
+    if (g.state === "off") return "Start gpsd: bash scripts/setup-gpsd.sh"
+    if (g.state === "nodevice") return "Plug the receiver in where it sees sky · docs/gps-receivers.md"
+    if (g.state === "nofix") return "Waiting on satellites — needs open sky, minutes from cold"
+    if (!v.running) return "Start session launches HookEcho and the NMEA bridge together"
+    return ""
+  }
+
+  // What this is, then the glyph legend — behind `?`. Someone opening this
+  // months later should not have to read the repository to place it, and the
+  // widget has room for two marks with no room to say what they mean.
+  readonly property string legendText:
+    "omarchy-chase runs one storm-chase session on this desktop: it points\n" +
+    "HookEcho and Supercell Wx at one GPS through gpsd, and starts and stops\n" +
+    "them together. It draws no weather itself — the viewers do that.\n" +
+    "\n" +
+    "Bar glyph: ● session running · ○ idle\n" +
+    "GPS mark: + fix · … acquiring · × no receiver · – gpsd off\n" +
+    "Esc closes · ? toggles this help"
 
   Process {
     id: snapshotProcess
@@ -122,17 +147,34 @@ Panel {
       onCloseRequested: root.close()
       onActivateRequested: root.session("start")
       onTabRequested: function(direction) { root.switchPanel(direction) }
+      onTextKey: function(t) { if (t === "?" || t === "/") root.helpOpen = !root.helpOpen }
 
       ColumnLayout {
         id: column
         anchors.fill: parent
         spacing: Style.space(8)
 
-        Text {
-          text: "Chase session"
-          color: Color.foreground
-          font.pixelSize: Style.font.body
-          font.family: Style.font.family
+        RowLayout {
+          Layout.fillWidth: true
+          Text {
+            text: "Chase session"
+            color: Color.foreground
+            font.pixelSize: Style.font.body
+            font.family: Style.font.family
+            Layout.fillWidth: true
+          }
+          Text {
+            text: "?"
+            color: root.helpOpen ? Color.accent : Color.foreground
+            opacity: root.helpOpen ? 1 : .6
+            font.pixelSize: Style.font.body
+            font.family: Style.font.family
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.helpOpen = !root.helpOpen
+            }
+          }
         }
         Text { text: root.gpsText(); color: Color.foreground; opacity: .75; font.pixelSize: Style.font.bodySmall; font.family: Style.font.family }
         Text { text: root.netText(); color: Color.foreground; opacity: .75; font.pixelSize: Style.font.bodySmall; font.family: Style.font.family }
@@ -141,6 +183,26 @@ Panel {
           text: root.note
           visible: root.note !== ""
           color: Color.accent
+          font.pixelSize: Style.font.bodySmall
+          font.family: Style.font.family
+          Layout.fillWidth: true
+          wrapMode: Text.WordWrap
+        }
+        Text {
+          text: root.hintText()
+          visible: !root.helpOpen && text !== ""
+          color: Color.foreground
+          opacity: .55
+          font.pixelSize: Style.font.bodySmall
+          font.family: Style.font.family
+          Layout.fillWidth: true
+          wrapMode: Text.WordWrap
+        }
+        Text {
+          text: root.legendText
+          visible: root.helpOpen
+          color: Color.foreground
+          opacity: .7
           font.pixelSize: Style.font.bodySmall
           font.family: Style.font.family
           Layout.fillWidth: true
