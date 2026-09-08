@@ -55,9 +55,19 @@ Item {
     sessionProcess.running = true
   }
 
-  Component.onCompleted: refresh()
-  onOpenedChanged: if (root.opened) root.refresh()
-
+  onOpenedChanged: {
+    if (root.opened) {
+      root.refresh()
+      Qt.callLater(function() { if (root.opened) keyCatcher.forceActiveFocus() })
+    }
+  }
+  Item {
+    id: keyCatcher
+    focus: true
+    Keys.onPressed: function(event) {
+      if (event.key === Qt.Key_Escape) { root.close(); event.accepted = true }
+    }
+  }
   Timer { interval: 10000; repeat: true; running: root.opened; onTriggered: root.refresh() }
 
   function gpsText() {
@@ -145,7 +155,17 @@ Item {
         anchors.margins: 16
         spacing: 8
 
-        Text { text: "Chase session"; color: root.foreground; font.pixelSize: 16 }
+        RowLayout {
+          Layout.fillWidth: true
+          Text { text: "Chase session"; color: root.foreground; font.pixelSize: 16; Layout.fillWidth: true }
+          Text {
+            text: "×"; color: root.dim; font.pixelSize: 18
+            MouseArea {
+              anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+              onClicked: root.close()
+            }
+          }
+        }
         Text { text: root.gpsText(); color: root.dim; font.pixelSize: 12 }
         Text { text: root.netText(); color: root.dim; font.pixelSize: 12 }
         Text { text: root.viewerText(); color: root.dim; font.pixelSize: 12 }
