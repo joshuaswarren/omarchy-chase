@@ -6,12 +6,10 @@
   "author": "Joshua Warren",
   "description": "Storm-chase session: GPS, network and viewer state in the bar; start and stop the chase session.",
   "kinds": [
-    "panel",
     "bar-widget"
   ],
   "keepLoaded": true,
   "entryPoints": {
-    "panel": "ChasePanel.qml",
     "barWidget": "ChaseWidget.qml"
   },
   "barWidget": {

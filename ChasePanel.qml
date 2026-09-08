@@ -1,73 +1,48 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
 import Quickshell.Io
-import Quickshell.Wayland
 import qs.Commons
+import qs.Ui
 
-// Chase session panel: GPS, network and viewer state as reported (never
+// Chase session popup: GPS, network and viewer state as reported (never
 // scraped), plus session start/stop. State comes from bin/chase-status;
-// actions run scripts/chase-session.sh. Rendering no weather is the point.
-// Drops down from the top edge in the shape of omaloop's panel.
-Item {
+// actions run scripts/chase-session.sh. It renders no weather.
+//
+// Built on the shared Panel/KeyboardPanel pair like the first-party
+// panels: that supplies the open/close lifecycle, anchoring under the bar
+// button, outside-click dismissal, and Escape — none of which a bare
+// PanelWindow gets right.
+Panel {
   id: root
+  moduleName: "io.github.joshuaswarren.chase"
+  manageIpc: false
 
-  property var shell: null
-  property var manifest: null
-  property bool opened: false
+  property var anchorItem: null
+  property var hostWidget: null
+  readonly property var barIdentity: hostWidget || root
 
-  readonly property string pluginId: "io.github.joshuaswarren.chase"
-  readonly property string pluginDir: {
-    var url = String(Qt.resolvedUrl("."))
-    if (url.indexOf("file://") === 0) url = url.substring(7)
-    if (url.indexOf("localhost/") === 0) url = url.substring(9)
-    try { url = decodeURIComponent(url) } catch (e) { }
-    return url.replace(/\/+$/, "")
-  }
-  readonly property string helper: pluginDir + "/bin/chase-status"
+  property string helper: ""
+  property string pluginDir: ""
   readonly property string sessionScript: pluginDir + "/scripts/chase-session.sh"
 
   property var snap: ({})
   property string note: ""
 
-  readonly property color background: Color.background
-  readonly property color foreground: Color.foreground
-  readonly property color accent: Color.accent
-  readonly property color dim: Color.muted
-
-  readonly property int sheetW: 380
-  readonly property int sheetH: 300
-
   function refresh() {
-    if (snapshotProcess.running) return
+    if (snapshotProcess.running || root.helper === "") return
     snapshotProcess.command = ["python3", root.helper]
     snapshotProcess.running = true
   }
-  // Summoned by the shell (toggle/summon); hidden by close. `opened` drives
-  // the window, the refresh timer, and the shell's isOpen readback.
-  function open(payloadJson) { root.opened = true; root.refresh() }
-  function close() { root.opened = false }
 
   function session(action) {
-    if (sessionProcess.running) return
-    root.note = ""
+    if (sessionProcess.running || root.pluginDir === "") return
+    root.note = "…"
     sessionProcess.command = ["bash", root.sessionScript, action]
     sessionProcess.running = true
   }
 
-  onOpenedChanged: {
-    if (root.opened) {
-      root.refresh()
-      Qt.callLater(function() { if (root.opened) keyCatcher.forceActiveFocus() })
-    }
-  }
-  Item {
-    id: keyCatcher
-    focus: true
-    Keys.onPressed: function(event) {
-      if (event.key === Qt.Key_Escape) { root.close(); event.accepted = true }
-    }
-  }
+  onOpenedChanged: if (root.opened) root.refresh()
+
   Timer { interval: 10000; repeat: true; running: root.opened; onTriggered: root.refresh() }
 
   function gpsText() {
@@ -131,67 +106,58 @@ Item {
     }
   }
 
-  PanelWindow {
-    id: window
-    visible: root.opened
-    anchors { top: true; left: false; right: false; bottom: false }
-    implicitWidth: root.sheetW
-    implicitHeight: root.sheetH
-    color: "transparent"
-    WlrLayershell.namespace: "chase"
-    WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    exclusionMode: ExclusionMode.Ignore
+  KeyboardPanel {
+    id: panel
+    anchorItem: root.anchorItem
+    owner: root.barIdentity
+    bar: root.bar
+    open: root.opened
+    focusTarget: keyCatcher
+    contentWidth: panel.fittedContentWidth(Style.space(320))
+    contentHeight: panel.fittedContentHeight(column.implicitHeight)
 
-    Rectangle {
+    PanelKeyCatcher {
+      id: keyCatcher
       anchors.fill: parent
-      color: root.background
-      border.color: root.accent
-      border.width: 1
-      radius: Style.cornerRadius
+      onCloseRequested: root.close()
+      onActivateRequested: root.session("start")
+      onTabRequested: function(direction) { root.switchPanel(direction) }
 
       ColumnLayout {
+        id: column
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 8
+        spacing: Style.space(8)
 
-        RowLayout {
+        Text {
+          text: "Chase session"
+          color: Color.foreground
+          font.pixelSize: Style.font.body
+          font.family: Style.font.family
+        }
+        Text { text: root.gpsText(); color: Color.foreground; opacity: .75; font.pixelSize: Style.font.bodySmall; font.family: Style.font.family }
+        Text { text: root.netText(); color: Color.foreground; opacity: .75; font.pixelSize: Style.font.bodySmall; font.family: Style.font.family }
+        Text { text: root.viewerText(); color: Color.foreground; opacity: .75; font.pixelSize: Style.font.bodySmall; font.family: Style.font.family }
+        Text {
+          text: root.note
+          visible: root.note !== ""
+          color: Color.accent
+          font.pixelSize: Style.font.bodySmall
+          font.family: Style.font.family
           Layout.fillWidth: true
-          Text { text: "Chase session"; color: root.foreground; font.pixelSize: 16; Layout.fillWidth: true }
-          Text {
-            text: "×"; color: root.dim; font.pixelSize: 18
-            MouseArea {
-              anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-              onClicked: root.close()
-            }
-          }
+          wrapMode: Text.WordWrap
         }
-        Text { text: root.gpsText(); color: root.dim; font.pixelSize: 12 }
-        Text { text: root.netText(); color: root.dim; font.pixelSize: 12 }
-        Text { text: root.viewerText(); color: root.dim; font.pixelSize: 12 }
-        Text { text: root.note; color: root.accent; font.pixelSize: 12; visible: root.note !== "" }
 
         RowLayout {
-          spacing: 8
-          Rectangle {
-            implicitWidth: 120; implicitHeight: 32; radius: Style.cornerRadius; color: root.accent
-            Text { anchors.centerIn: parent; text: "Start session"; color: root.background }
-            MouseArea {
-              anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-              onClicked: root.session("start")
-            }
+          spacing: Style.space(8)
+          Button {
+            text: "Start session"
+            onClicked: root.session("start")
           }
-          Rectangle {
-            implicitWidth: 120; implicitHeight: 32; radius: Style.cornerRadius
-            color: "transparent"; border.color: root.dim; border.width: 1
-            Text { anchors.centerIn: parent; text: "Stop"; color: root.foreground }
-            MouseArea {
-              anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-              onClicked: root.session("stop")
-            }
+          Button {
+            text: "Stop"
+            onClicked: root.session("stop")
           }
         }
-        Item { Layout.fillHeight: true }
       }
     }
   }

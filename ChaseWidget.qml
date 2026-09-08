@@ -1,17 +1,18 @@
 import QtQuick
 import Quickshell.Io
 import qs.Commons
+import qs.Ui
 
-// Chase bar widget: one glyph summarising the session. Filled dot while a
-// session is active, GPS state beside it. Click opens the session panel.
-// Helper and scripts resolve beside the installed plugin copy, in the shape
-// of fleet-shepherd's BarWidget.
-Item {
+// Chase bar widget: one glyph summarising the session, and the host for the
+// session panel.
+//
+// Shape follows the first-party clock widget, which is the contract the bar
+// enforces: clicks arrive only through a registered WidgetButton, and a
+// bar-widget that owns a panel mounts it in a nested Loader and exposes
+// open/close/opened on its own root (Bar.findPanelWidget looks there).
+BarWidget {
   id: root
-
-  property var bar: null
-  property string moduleName: "io.github.joshuaswarren.chase"
-  property var settings: ({})
+  moduleName: "io.github.joshuaswarren.chase"
 
   readonly property string pluginDir: {
     var url = String(Qt.resolvedUrl("."))
@@ -25,10 +26,31 @@ Item {
   property var snap: ({})
   property string glyph: "○ chase"
 
-  readonly property color foreground: root.bar ? root.bar.foreground : Color.foreground
+  implicitWidth: button.implicitWidth
+  implicitHeight: button.implicitHeight
 
-  implicitWidth: label.implicitWidth + 24
-  implicitHeight: root.bar ? root.bar.barSize : 26
+  // ---- Panel lifecycle. The bar routes summon/hide/toggle here.
+  readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
+  readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
+
+  function open() { if (panelLoader.item) panelLoader.item.open() }
+  function close() { if (panelLoader.item) panelLoader.item.close() }
+  function togglePanel() { if (panelLoader.item) panelLoader.item.toggle() }
+  function closeForPopoutSwitch() { if (panelLoader.item) panelLoader.item.closeForPopoutSwitch() }
+
+  function injectPanel() {
+    var target = panelLoader.item
+    if (!target) return
+    if ("bar" in target) target.bar = root.bar
+    if ("settings" in target) target.settings = root.settings
+    if ("anchorItem" in target) target.anchorItem = button
+    if ("hostWidget" in target) target.hostWidget = root
+    if ("helper" in target) target.helper = root.helper
+    if ("pluginDir" in target) target.pluginDir = root.pluginDir
+  }
+
+  onBarChanged: injectPanel()
+  onSettingsChanged: injectPanel()
 
   function refresh() {
     if (snapshotProcess.running) return
@@ -53,6 +75,7 @@ Item {
           var dot = next.session && next.session.active ? "●" : "○"
           var mark = gps === "fix" ? "+" : gps === "nofix" ? "…" : gps === "nodevice" ? "×" : "–"
           root.glyph = dot + " chase " + mark
+          if (panelLoader.item) panelLoader.item.snap = next
         } catch (e) { console.warn("chase", "snapshot was malformed") }
       }
     }
@@ -62,40 +85,31 @@ Item {
     }
   }
 
-  Rectangle {
-    anchors.fill: parent
-    radius: Style.cornerRadius
-    color: mouse.containsPress ? Color.accent : "transparent"
-    opacity: mouse.containsMouse && !mouse.containsPress ? 0.75 : 1
-
-    Text {
-      id: label
-      anchors.centerIn: parent
-      color: (root.snap.session && root.snap.session.active) ? Color.accent : root.foreground
-      text: root.glyph
-      font.pixelSize: 12
-      font.family: root.bar && root.bar.fontFamily ? root.bar.fontFamily : "monospace"
+  Loader {
+    id: panelLoader
+    active: true
+    source: Qt.resolvedUrl("ChasePanel.qml")
+    visible: false
+    onLoaded: {
+      root.injectPanel()
+      Qt.callLater(root.injectPanel)
     }
-
-    MouseArea {
-      id: mouse
-      anchors.fill: parent
-      hoverEnabled: true
-      cursorShape: Qt.PointingHandCursor
-      onClicked: {
-        if (toggleProcess.running) return
-        toggleProcess.command = ["omarchy-shell", "shell", "toggle", root.moduleName]
-        toggleProcess.running = true
-      }
+    onStatusChanged: {
+      if (status === Loader.Error)
+        console.warn("chase: panel failed to load:", sourceComponent ? sourceComponent.errorString() : "")
     }
   }
 
-  Process {
-    id: toggleProcess
-    running: false
-    stderr: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: if (String(text || "").trim() !== "") console.warn("chase", String(text).trim())
+  WidgetButton {
+    id: button
+    anchors.fill: parent
+    bar: root.bar
+    text: root.glyph
+    active: root.opened
+    tooltipText: "Chase session"
+    onPressed: {
+      root.refresh()
+      root.togglePanel()
     }
   }
 }
