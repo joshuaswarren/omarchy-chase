@@ -1,19 +1,22 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Io
+import Quickshell.Wayland
 import qs.Commons
 
 // Chase session panel: GPS, network and viewer state as reported (never
 // scraped), plus session start/stop. State comes from bin/chase-status;
 // actions run scripts/chase-session.sh. Rendering no weather is the point.
+// Drops down from the top edge in the shape of omaloop's panel.
 Item {
   id: root
 
-  property var bar: null
-  property string moduleName: "io.github.joshuaswarren.chase"
-  property var settings: ({})
+  property var shell: null
+  property var manifest: null
   property bool opened: false
 
+  readonly property string pluginId: "io.github.joshuaswarren.chase"
   readonly property string pluginDir: {
     var url = String(Qt.resolvedUrl("."))
     if (url.indexOf("file://") === 0) url = url.substring(7)
@@ -27,15 +30,23 @@ Item {
   property var snap: ({})
   property string note: ""
 
+  readonly property color background: Color.background
   readonly property color foreground: Color.foreground
   readonly property color accent: Color.accent
-  readonly property color dim: Color.foreground
+  readonly property color dim: Color.muted
+
+  readonly property int sheetW: 380
+  readonly property int sheetH: 300
 
   function refresh() {
     if (snapshotProcess.running) return
     snapshotProcess.command = ["python3", root.helper]
     snapshotProcess.running = true
   }
+  // Summoned by the shell (toggle/summon); hidden by close. `opened` drives
+  // the window, the refresh timer, and the shell's isOpen readback.
+  function open(payloadJson) { root.opened = true; root.refresh() }
+  function close() { root.opened = false }
 
   function session(action) {
     if (sessionProcess.running) return
@@ -110,35 +121,57 @@ Item {
     }
   }
 
-  ColumnLayout {
-    anchors.fill: parent
-    anchors.margins: 16
-    spacing: 8
+  PanelWindow {
+    id: window
+    visible: root.opened
+    anchors { top: true; left: false; right: false; bottom: false }
+    implicitWidth: root.sheetW
+    implicitHeight: root.sheetH
+    color: "transparent"
+    WlrLayershell.namespace: "chase"
+    WlrLayershell.layer: WlrLayer.Top
+    WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    exclusionMode: ExclusionMode.Ignore
 
-    Text { text: "Chase session"; color: root.foreground; font.pixelSize: 16 }
-    Text { text: root.gpsText(); color: root.dim; font.pixelSize: 12 }
-    Text { text: root.netText(); color: root.dim; font.pixelSize: 12 }
-    Text { text: root.viewerText(); color: root.dim; font.pixelSize: 12 }
-    Text { text: root.note; color: root.accent; font.pixelSize: 12; visible: root.note !== "" }
+    Rectangle {
+      anchors.fill: parent
+      color: root.background
+      border.color: root.accent
+      border.width: 1
+      radius: Style.cornerRadius
 
-    RowLayout {
-      spacing: 8
-      Rectangle {
-        implicitWidth: 120; implicitHeight: 32; radius: Style.cornerRadius; color: root.accent
-        Text { anchors.centerIn: parent; text: "Start session"; color: Color.background }
-        MouseArea {
-          anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-          onClicked: root.session("start")
+      ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 16
+        spacing: 8
+
+        Text { text: "Chase session"; color: root.foreground; font.pixelSize: 16 }
+        Text { text: root.gpsText(); color: root.dim; font.pixelSize: 12 }
+        Text { text: root.netText(); color: root.dim; font.pixelSize: 12 }
+        Text { text: root.viewerText(); color: root.dim; font.pixelSize: 12 }
+        Text { text: root.note; color: root.accent; font.pixelSize: 12; visible: root.note !== "" }
+
+        RowLayout {
+          spacing: 8
+          Rectangle {
+            implicitWidth: 120; implicitHeight: 32; radius: Style.cornerRadius; color: root.accent
+            Text { anchors.centerIn: parent; text: "Start session"; color: root.background }
+            MouseArea {
+              anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+              onClicked: root.session("start")
+            }
+          }
+          Rectangle {
+            implicitWidth: 120; implicitHeight: 32; radius: Style.cornerRadius
+            color: "transparent"; border.color: root.dim; border.width: 1
+            Text { anchors.centerIn: parent; text: "Stop"; color: root.foreground }
+            MouseArea {
+              anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+              onClicked: root.session("stop")
+            }
+          }
         }
-      }
-      Rectangle {
-        implicitWidth: 120; implicitHeight: 32; radius: Style.cornerRadius
-        color: "transparent"; border.color: root.dim; border.width: 1
-        Text { anchors.centerIn: parent; text: "Stop"; color: root.foreground }
-        MouseArea {
-          anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-          onClicked: root.session("stop")
-        }
+        Item { Layout.fillHeight: true }
       }
     }
   }
