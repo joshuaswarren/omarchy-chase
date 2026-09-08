@@ -37,8 +37,11 @@ HookEcho ships `.deb`, AppImage, and Windows installers; Arch has no package
       HookEcho, and `xdg-open 'hookecho://goto/KTLX'` opens it (verified on
       esper 2026-09-08: `opening link hookecho://goto/KTLX`, `live stream
       started for KTLX`).
-- [ ] Decide whether an AUR package belongs upstream; if so, propose it there
-      rather than maintaining one here.
+- [x] Decide whether an AUR package belongs upstream; if so, propose it there
+      rather than maintaining one here. Proposed: `d4vid87/hookecho#315`
+      (stamp prerelease `pkgver`, drop `-flto` for the C link; validated
+      clean-room `makepkg` at 0.12.0-beta.2). Publishing to the AUR itself
+      needs their account; the install script stays until then.
 
 ## 2. One GPS source for everything
 
@@ -97,7 +100,7 @@ first.
 ## Upstream log
 
 Every change proposed to another project, with its receipt.
-
 | Date | Project | Change | Receipt |
 | --- | --- | --- | --- |
 | 2026-09-08 | Omastorm | `Shift+O` / HOOKECHO control opens the view in HookEcho | `wesleygrimes/omastorm#17` from branch `hookecho-handoff`; verified on esper (`check.sh` 15/15, live / stepped-back / off-PATH) |
+| 2026-09-08 | HookEcho | AUR manifest: stamp prereleases, drop `-flto` for the C link | `d4vid87/hookecho#315` from branch `aur-prerelease-pkgver`; clean-room `makepkg` at 0.12.0-beta.2 on esper |
