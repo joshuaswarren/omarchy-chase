@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+# One JSON snapshot for the chase bar widget and panel: GPS (via gpsd),
+# network (via NetworkManager), viewer (is HookEcho running, alert count
+# from its own --status export). Nothing here renders weather; the panel
+# shows these states as-is. The alert report is cached 300 s under
+# ~/.cache/omarchy-chase (a run costs seconds and feed requests).
+import json
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import time
+
+CACHE_DIR = os.path.expanduser("~/.cache/omarchy-chase")
+CACHE_FILE = os.path.join(CACHE_DIR, "viewer-status.json")
+CACHE_TTL = 300
+GPSD_HOST, GPSD_PORT = "127.0.0.1", 2947
+
+
+def gps_state():
+    try:
+        s = socket.create_connection((GPSD_HOST, GPSD_PORT), timeout=3)
+    except OSError:
+        return {"state": "off"}
+    try:
+        s.settimeout(3)
+        f = s.makefile("r")
+        s.sendall(b'?WATCH={"enable":true,"json":true};')
+        devices, tpv = [], None
+        while True:
+            try:
+                line = f.readline()
+            except (socket.timeout, TimeoutError):
+                break
+            if not line:
+                break
+            try:
+                msg = json.loads(line)
+            except ValueError:
+                continue
+            if msg.get("class") == "DEVICES":
+                devices = [d.get("path", "?") for d in msg.get("devices", [])]
+            elif msg.get("class") == "TPV":
+                tpv = msg
+                if tpv.get("mode", 1) >= 2 and devices:
+                    break
+    finally:
+        s.close()
+    if not devices:
+        return {"state": "nodevice"}
+    if tpv and tpv.get("mode", 1) >= 2 and tpv.get("lat") is not None:
+        return {"state": "fix", "lat": round(tpv["lat"], 4),
+                "lon": round(tpv["lon"], 4), "device": devices[0]}
+    return {"state": "nofix", "device": devices[0]}
+
+
+def run(*args, timeout=10):
+    try:
+        p = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return p.stdout.strip() if p.returncode == 0 else None
+
+def net_state():
+    if shutil.which("nmcli") is None:
+        return {"state": "unknown"}
+    out = run("nmcli", "-t", "-f", "NAME,TYPE,STATE", "connection", "show", "--active")
+    conns = [l.split(":")[0] for l in (out or "").splitlines() if l]
+    metered = run("nmcli", "-t", "-f", "GENERAL.METERED", "general")
+    return {"state": "up" if conns else "down",
+            "connection": conns[0] if conns else None,
+            "metered": (metered or "").strip().lower() in ("yes", "yes (guessed)")}
+
+
+def viewer_state():
+    running = run("pgrep", "-x", "hookecho") is not None
+    info = {"running": running, "alerts": None, "summary": None}
+    if not running:
+        try:
+            os.remove(CACHE_FILE)
+        except OSError:
+            pass
+        return info
+    try:
+        age = time.time() - os.path.getmtime(CACHE_FILE)
+        if age < CACHE_TTL:
+            with open(CACHE_FILE) as f:
+                return {**info, **json.load(f)}
+    except OSError:
+        pass
+    out = run("hookecho", "--status", "--json", timeout=60)
+    if out:
+        try:
+            spots = json.loads(out)
+            alerts = sum(len(s.get("alerts", [])) for s in spots)
+            home = next((s for s in spots if s.get("home")), spots[0] if spots else {})
+            summary = f"{home.get('temp_f', '?')}°F · {len(spots)} spot(s)"
+            info.update(alerts=alerts, summary=summary)
+            os.makedirs(CACHE_DIR, exist_ok=True)
+            with open(CACHE_FILE, "w") as f:
+                json.dump({"alerts": alerts, "summary": summary}, f)
+        except (ValueError, IndexError):
+            pass
+    return info
+
+
+def session_state(viewer_running):
+    bridge = run("bash", os.path.join(os.path.dirname(__file__), "..", "scripts",
+                                      "nmea-bridge.sh"), "status") is not None
+    active = bool(viewer_running or bridge)
+    return {"active": active, "viewer": bool(viewer_running), "bridge": bridge}
+
+
+def main():
+    viewer = viewer_state()
+    snap = {"gps": gps_state(), "net": net_state(), "viewer": viewer,
+            "session": session_state(viewer["running"])}
+    print(json.dumps(snap))
+
+
+if __name__ == "__main__":
+    main()

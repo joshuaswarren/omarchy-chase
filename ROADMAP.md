@@ -71,16 +71,22 @@ HookEcho ships `.deb`, AppImage, and Windows installers; Arch has no package
 A small Quickshell panel in the Omarchy bar, in Omastorm's plugin shape. It
 shows state and starts or stops a session; it renders no weather.
 
-- [ ] Session start and stop: launch the viewer on a saved workspace, start
-      GPS, start any recording, and stop them together.
-- [ ] Status: GPS fix, which network connection is active and whether it is
-      metered, viewer running or not.
-- [ ] Viewer state that the bar needs and HookEcho exports today
-      (`/status.json`, `/alerts.json`) shown as-is. State it does not export is
+- [x] Session start and stop: `scripts/chase-session.sh` brings up the NMEA
+      bridge and the viewer together and takes both down. No saved
+      workspace move (left out deliberately — yanking the user's workspace
+      is not a session primitive) and no recording yet (nothing records).
+- [x] Status: `bin/chase-status` reports GPS fix, active NetworkManager
+      connection + metered flag, viewer running or not — one JSON snapshot
+      for widget and panel.
+- [x] Viewer state that the bar needs and HookEcho exports today
+      (`hookecho --status --json`: same report as `/status.json`, no second
+      process; cached 300 s) shown as-is. State it does not export is
       added upstream as a supported export first, then consumed; never read
       from private files.
 - [ ] Receipt: a recorded session from a cold desktop to a running chase and
-      back, with the bar showing every transition.
+      back, with the bar showing every transition. Blocked on the VK-162
+      (session start needs gpsd answering) and on a working screen
+      capture — `grim` hangs on esper, X11 capture unavailable.
 
 ## 4. Connectivity behaviour
 

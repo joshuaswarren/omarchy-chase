@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.joshuaswarren.chase",
+  "name": "chase",
+  "version": "0.1.0",
+  "author": "Joshua Warren",
+  "description": "Storm-chase session: GPS, network and viewer state in the bar; start and stop the chase session.",
+  "kinds": [
+    "panel",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "ChasePanel.qml",
+    "barWidget": "ChaseWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "chase",
+    "description": "Shows chase session state; opens the session panel",
+    "category": "System",
+    "defaultSection": "right",
+    "allowMultiple": false
+  }
+}
