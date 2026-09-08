@@ -79,12 +79,23 @@ Item {
 
     MouseArea {
       id: mouse
+      anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: {
-        if (!root.bar) return
-        root.bar.run("omarchy-shell shell toggle io.github.joshuaswarren.chase")
+        if (toggleProcess.running) return
+        toggleProcess.command = ["omarchy-shell", "shell", "toggle", root.moduleName]
+        toggleProcess.running = true
       }
+    }
+  }
+
+  Process {
+    id: toggleProcess
+    running: false
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: if (String(text || "").trim() !== "") console.warn("chase", String(text).trim())
     }
   }
 }
