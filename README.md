@@ -90,6 +90,22 @@ Remove symmetrically:
 bash scripts/install-hookecho.sh --remove
 ```
 
+## GPS
+
+One receiver feeds every viewer through `gpsd`. Recommended hardware and
+what to avoid: `docs/gps-receivers.md`.
+
+```sh
+bash scripts/setup-gpsd.sh   # install gpsd, enable it, wait for the receiver
+chase-gps                    # fix / no fix / no device (add bin/ to PATH)
+bash scripts/nmea-bridge.sh start  # NMEA on 127.0.0.1:2948 for Supercell Wx
+```
+
+HookEcho reads `gpsd` itself (its "Connect GPS (gpsd)" button, daemon on
+`:2947` — no setup beyond a running daemon). Supercell Wx takes an NMEA
+network source instead: File > Settings > General > GPS Plugin > NMEA >
+`socket://127.0.0.1:2948`.
+
 ## Related
 
 - [Omastorm](https://github.com/wesleygrimes/omastorm), the Omarchy radar

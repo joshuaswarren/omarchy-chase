@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+# One GPS question, answered for humans and the bar: fix / no fix / no device.
+# Talks to gpsd's JSON protocol on localhost:2947 (GPSD_HOST/GPSD_PORT
+# override for tests). Exit 0 on fix, 1 otherwise.
+import json
+import os
+import socket
+import sys
+
+HOST = os.environ.get("GPSD_HOST", "127.0.0.1")
+PORT = int(os.environ.get("GPSD_PORT", "2947"))
+TIMEOUT = float(os.environ.get("GPSD_TIMEOUT", "6"))
+
+
+def query():
+    """Return (devices, tpv) seen on the watch stream, either possibly empty."""
+    devices, tpv = [], None
+    s = socket.create_connection((HOST, PORT), timeout=TIMEOUT)
+    try:
+        s.settimeout(TIMEOUT)
+        f = s.makefile("r")
+        s.sendall(b'?WATCH={"enable":true,"json":true};')
+        while True:
+            try:
+                line = f.readline()
+            except (socket.timeout, TimeoutError):
+                break
+            if not line:
+                break
+            try:
+                msg = json.loads(line)
+            except ValueError:
+                continue
+            cls = msg.get("class")
+            if cls == "DEVICES":
+                devices = [d.get("path", "?") for d in msg.get("devices", [])]
+            elif cls == "TPV":
+                tpv = msg
+                if tpv.get("mode", 1) >= 2 and devices:
+                    break
+    finally:
+        s.close()
+    return devices, tpv
+
+
+def main(argv):
+    as_json = "--json" in argv[1:]
+    try:
+        devices, tpv = query()
+    except OSError:
+        state = {"state": "off", "detail": f"gpsd not answering on {HOST}:{PORT}"}
+        print(f"GPS off — gpsd not running on {HOST}:{PORT}")
+        return 1 if not as_json else (print(json.dumps(state)) or 1)
+    if not devices:
+        print("GPS no device — gpsd running, nothing attached")
+        if as_json:
+            print(json.dumps({"state": "nodevice"}))
+        return 1
+    dev = devices[0]
+    mode = (tpv or {}).get("mode", 1)
+    if mode >= 2 and tpv.get("lat") is not None and tpv.get("lon") is not None:
+        print(f"GPS fix — {tpv['lat']:.4f}, {tpv['lon']:.4f} ({dev})")
+        if as_json:
+            print(json.dumps({"state": "fix", "lat": tpv["lat"], "lon": tpv["lon"], "device": dev}))
+        return 0
+    print(f"GPS no fix — {dev} waiting on satellites")
+    if as_json:
+        print(json.dumps({"state": "nofix", "device": dev}))
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

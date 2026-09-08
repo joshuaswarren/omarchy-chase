@@ -45,15 +45,26 @@ HookEcho ships `.deb`, AppImage, and Windows installers; Arch has no package
 
 ## 2. One GPS source for everything
 
-- [ ] `gpsd` set up for the receivers actually on the chase laptop, with a
+- [x] `gpsd` set up for the receivers actually on the chase laptop, with a
       status check that says fix / no fix / no device.
-- [ ] HookEcho pointed at that `gpsd`, using its documented desktop support.
-- [ ] Supercell Wx pointed at the same `gpsd` through the documented
+      (`scripts/setup-gpsd.sh`, `bin/chase-gps`; all four states
+      exercised against a fake daemon. Daemon install + first fix await
+      the VK-162, arriving 2026-09-09.)
+- [x] HookEcho pointed at that `gpsd`, using its documented desktop support.
+      (No script needed: its "Connect GPS (gpsd)" button reads `:2947`.
+      Verified in source — `crates/hookecho/src/gps.rs`, `app.rs`,
+      `docs/technical-reference.md`.)
+- [x] Supercell Wx pointed at the same `gpsd` through the documented
       `gpspipe` and `socat` route, scripted so the user does not assemble it.
+      (`scripts/nmea-bridge.sh` serves NMEA on `127.0.0.1:2948`; Supercell
+      takes `socket://127.0.0.1:2948` as its NMEA network source, per its
+      settings docs and the Qt NMEA plugin contract.)
       If the maintainers agree, propose a direct `gpsd` source upstream and
       retire the script.
 - [ ] Receipt: both viewers follow the same moving position in a recorded
       drive, and a pulled receiver shows as lost in the status check.
+      Blocked on hardware (VK-162 arrives 2026-09-09) and on Supercell Wx
+      being installed. Receiver guide: `docs/gps-receivers.md`.
 
 ## 3. Chase session and status in the bar
 
