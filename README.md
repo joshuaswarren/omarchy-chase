@@ -72,6 +72,24 @@ Each of these is a documented interface, verified against source before it is
 relied on. Where one turns out not to carry what the desktop needs, the fix is
 an upstream issue or pull request, recorded in the roadmap.
 
+## Install
+
+HookEcho (pinned in `hookecho.release.pin`, verified by sha256 on every
+install):
+
+```sh
+bash scripts/install-hookecho.sh
+```
+
+This places the AppImage under `~/.local/share/omarchy-chase/bin`, links
+`hookecho` on PATH through `~/.local/bin`, and registers a `.desktop`
+entry for `x-scheme-handler/hookecho` so `hookecho://goto/` links open it.
+Remove symmetrically:
+
+```sh
+bash scripts/install-hookecho.sh --remove
+```
+
 ## Related
 
 - [Omastorm](https://github.com/wesleygrimes/omastorm), the Omarchy radar

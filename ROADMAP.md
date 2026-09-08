@@ -10,13 +10,14 @@ the next step is. Nothing here is committed to beyond the step in progress.
 The first receipt, and the one that tests whether the three projects can
 collaborate at all before anything new is built.
 
-- [ ] Omastorm builds HookEcho's `hookecho://goto/` link from the station,
+- [x] Omastorm builds HookEcho's `hookecho://goto/` link from the station,
       map centre, zoom, and (when not live) the scan time on screen, and opens
-      it. Pull request against `wesleygrimes/omastorm`: branch
+      it. Pull request `wesleygrimes/omastorm#17` from branch
       `hookecho-handoff`.
-- [ ] Verified on an Omarchy machine with HookEcho installed as the AppImage:
-      the site and centre transfer, a live view opens live, a stepped-back
-      frame opens on that scan. Receipt: a recorded end-to-end run.
+- [x] Verified on esper (Omarchy, Arch) with HookEcho v0.12.0-beta.2 as the
+      AppImage: the site and centre transfer, a live view opens live, a
+      stepped-back frame opens on that scan. Receipt: `check.sh` 15/15 plus
+      the live / stepped-back / off-PATH runs in the PR body.
 - [ ] Any mismatch found (zoom scale, time handling, scheme registration on
       Arch) filed upstream against the project that owns it.
 
@@ -25,14 +26,17 @@ collaborate at all before anything new is built.
 HookEcho ships `.deb`, AppImage, and Windows installers; Arch has no package
 (AUR checked 2026-09-08). Omarchy is Arch.
 
-- [ ] A script that fetches the pinned AppImage release, verifies its
+- [x] A script that fetches the pinned AppImage release, verifies its
       checksum, places it under `~/.local/share/omarchy-chase/bin`, and puts
       `hookecho` on PATH plus a `.desktop` entry that registers
       `x-scheme-handler/hookecho`, in the shape Omastorm's
       `scripts/install-engine.sh` and `scripts/install-launcher.sh` use.
-- [ ] Removal is documented and symmetrical.
-- [ ] Receipt: `xdg-mime query default x-scheme-handler/hookecho` names
-      HookEcho, and `xdg-open 'hookecho://goto/KTLX'` opens it.
+      (`scripts/install-hookecho.sh`, pin in `hookecho.release.pin`.)
+- [x] Removal is documented and symmetrical (`--remove`, README).
+- [x] Receipt: `xdg-mime query default x-scheme-handler/hookecho` names
+      HookEcho, and `xdg-open 'hookecho://goto/KTLX'` opens it (verified on
+      esper 2026-09-08: `opening link hookecho://goto/KTLX`, `live stream
+      started for KTLX`).
 - [ ] Decide whether an AUR package belongs upstream; if so, propose it there
       rather than maintaining one here.
 
@@ -96,4 +100,4 @@ Every change proposed to another project, with its receipt.
 
 | Date | Project | Change | Receipt |
 | --- | --- | --- | --- |
-| 2026-09-08 | Omastorm | `Shift+O` / HOOKECHO control opens the view in HookEcho | Branch `hookecho-handoff`, pull request pending Omarchy verification |
+| 2026-09-08 | Omastorm | `Shift+O` / HOOKECHO control opens the view in HookEcho | `wesleygrimes/omastorm#17` from branch `hookecho-handoff`; verified on esper (`check.sh` 15/15, live / stepped-back / off-PATH) |
