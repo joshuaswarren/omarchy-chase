@@ -24,29 +24,36 @@ def gps_state():
     except OSError:
         return {"state": "off"}
     try:
-        s.settimeout(1.0)
-        f = s.makefile("r")
+        s.settimeout(0.5)
         s.sendall(b'?WATCH={"enable":true,"json":true};')
         devices, tpv = [], None
+        buf = b""
         # No-fix receivers stream TPV mode=1 forever: bound by wall clock.
+        # recv(), not makefile(): a file object poisons itself after one
+        # timeout and every later read raises, which looked like gpsd down.
         deadline = time.monotonic() + 3
         while time.monotonic() < deadline:
             try:
-                line = f.readline()
+                chunk = s.recv(4096)
             except (socket.timeout, TimeoutError):
                 continue
-            if not line:
+            if not chunk:
                 break
-            try:
-                msg = json.loads(line)
-            except ValueError:
-                continue
-            if msg.get("class") == "DEVICES":
-                devices = [d.get("path", "?") for d in msg.get("devices", [])]
-            elif msg.get("class") == "TPV":
-                tpv = msg
-                if tpv.get("mode", 1) >= 2 and devices:
-                    break
+            buf += chunk
+            while b"\n" in buf:
+                line, buf = buf.split(b"\n", 1)
+                try:
+                    msg = json.loads(line)
+                except ValueError:
+                    continue
+                if msg.get("class") == "DEVICES":
+                    devices = [d.get("path", "?") for d in msg.get("devices", [])]
+                elif msg.get("class") == "TPV":
+                    tpv = msg
+            if tpv and tpv.get("mode", 1) >= 2 and devices:
+                break
+    except OSError:
+        return {"state": "off"}
     finally:
         s.close()
     if not devices:

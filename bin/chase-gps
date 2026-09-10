@@ -15,35 +15,39 @@ TIMEOUT = float(os.environ.get("GPSD_TIMEOUT", "3"))
 def query():
     """Return (devices, tpv) seen on the watch stream, either possibly empty.
 
-    A receiver without a fix streams TPV mode=1 forever, so the socket
-    timeout alone never fires; a wall-clock deadline bounds the read and
-    the newest TPV wins."""
+    A receiver without a fix streams TPV mode=1 forever, so a wall-clock
+    deadline bounds the read and the newest TPV wins. Lines come off
+    recv(), not makefile(): a file object poisons itself after one timeout
+    ("cannot read from timed out object"), which read as gpsd being down."""
     import time
     devices, tpv = [], None
     deadline = time.monotonic() + TIMEOUT
     s = socket.create_connection((HOST, PORT), timeout=TIMEOUT)
     try:
-        s.settimeout(1.0)
-        f = s.makefile("r")
+        s.settimeout(0.5)
         s.sendall(b'?WATCH={"enable":true,"json":true};')
+        buf = b""
         while time.monotonic() < deadline:
             try:
-                line = f.readline()
+                chunk = s.recv(4096)
             except (socket.timeout, TimeoutError):
                 continue
-            if not line:
+            if not chunk:
                 break
-            try:
-                msg = json.loads(line)
-            except ValueError:
-                continue
-            cls = msg.get("class")
-            if cls == "DEVICES":
-                devices = [d.get("path", "?") for d in msg.get("devices", [])]
-            elif cls == "TPV":
-                tpv = msg
-                if tpv.get("mode", 1) >= 2 and devices:
-                    break
+            buf += chunk
+            while b"\n" in buf:
+                line, buf = buf.split(b"\n", 1)
+                try:
+                    msg = json.loads(line)
+                except ValueError:
+                    continue
+                cls = msg.get("class")
+                if cls == "DEVICES":
+                    devices = [d.get("path", "?") for d in msg.get("devices", [])]
+                elif cls == "TPV":
+                    tpv = msg
+            if tpv and tpv.get("mode", 1) >= 2 and devices:
+                break
     finally:
         s.close()
     return devices, tpv
