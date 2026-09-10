@@ -12,14 +12,24 @@ collaborate at all before anything new is built.
 
 - [x] Omastorm builds HookEcho's `hookecho://goto/` link from the station,
       map centre, zoom, and (when not live) the scan time on screen, and opens
-      it. Pull request `wesleygrimes/omastorm#17` from branch
-      `hookecho-handoff`.
+      it. Pull request `wesleygrimes/omastorm#17` — **declined as shaped**
+      (2026-09-09): Wes will not ship a viewer-specific control in Omastorm,
+      and proposed the inversion: Omastorm exposes the view, the desktop
+      hands it off. Agreed; #17 closed 2026-09-10.
 - [x] Verified on esper (Omarchy, Arch) with HookEcho v0.12.0-beta.2 as the
       AppImage: the site and centre transfer, a live view opens live, a
       stepped-back frame opens on that scan. Receipt: `check.sh` 15/15 plus
       the live / stepped-back / off-PATH runs in the PR body.
+- [x] The inverted shape: `wesleygrimes/omastorm#52` adds `site`, `scan`,
+      `live` to Omastorm's `state.json` and documents it as a read-only view
+      export (check asserts it through newest / oldest / newest);
+      `bin/chase-open` here reads that file and opens HookEcho's link, from
+      the panel or a keybind. Omastorm names no program. Receipt owed once
+      #52 lands: the same live / stepped-back run, driven from outside.
 - [ ] Any mismatch found (zoom scale, time handling, scheme registration on
-      Arch) filed upstream against the project that owns it.
+      Arch) filed upstream against the project that owns it. Zoom is now
+      derived from `span` on this side (best-effort ground scale); revisit
+      if HookEcho wants exact scale.
 
 ## 1. Install HookEcho on Omarchy
 
@@ -124,5 +134,8 @@ first.
 Every change proposed to another project, with its receipt.
 | Date | Project | Change | Receipt |
 | --- | --- | --- | --- |
-| 2026-09-08 | Omastorm | `Shift+O` / HOOKECHO control opens the view in HookEcho | `wesleygrimes/omastorm#17` from branch `hookecho-handoff`; verified on esper (`check.sh` 15/15, live / stepped-back / off-PATH) |
-| 2026-09-08 | HookEcho | AUR manifest: stamp prereleases, drop `-flto` for the C link | `d4vid87/hookecho#315` from branch `aur-prerelease-pkgver`; clean-room `makepkg` at 0.12.0-beta.2 on esper |
+| 2026-09-08 | Omastorm | `Shift+O` / HOOKECHO control opens the view in HookEcho | `wesleygrimes/omastorm#17`; declined as shaped 2026-09-09, closed 2026-09-10 in favour of #52 |
+| 2026-09-08 | HookEcho | AUR manifest: stamp prereleases, drop `-flto` for the C link | `d4vid87/hookecho#315` — **merged** 2026-09-08 |
+| 2026-09-10 | HookEcho | Connect gpsd at launch (`gps_autoconnect`) | `d4vid87/hookecho#322` — **merged** 2026-09-10, CI 7/7 |
+| 2026-09-10 | Omastorm | Follow a GPS receiver when `gpsd = true` | `wesleygrimes/omastorm#51`, rebased onto v0.1.6; suite green (`check-bind` fails the same on main) |
+| 2026-09-10 | Omastorm | Export the view on screen in `state.json` (`site`, `scan`, `live`) | `wesleygrimes/omastorm#52`; `check-export` green; consumer is `bin/chase-open` here |

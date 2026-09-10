@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+# Hand the view Omastorm is showing to HookEcho. Reads Omastorm's view
+# export ($XDG_STATE_HOME/omastorm/state.json: lat, lon, span, site, scan,
+# live — docs/configuration.md there), builds HookEcho's documented deep
+# link, hookecho://goto/SITE,lon,lat,zoom[,time], and opens it. The scan
+# time travels only when the frame shown is not the live head, so a live
+# view opens live and a stepped-back one opens on that scan. Bind it to a
+# key or press it in the chase panel; Omastorm itself opens nothing.
+import json
+import math
+import os
+import shutil
+import subprocess
+import sys
+
+STATE = os.path.join(os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "omastorm", "state.json")
+# HookEcho's zoom is Web Mercator: log2 of the world's width in 256 px
+# tiles. Omastorm exports a span in kilometres, viewer-neutral; a nominal
+# 1000 px viewport turns it into a zoom that shows about the same ground.
+VIEWPORT_PX = 1000
+EARTH_KM = 40075.017
+
+
+def link(state):
+    lat, lon, span = state.get("lat"), state.get("lon"), state.get("span")
+    if lat is None or lon is None:
+        return None
+    site = state.get("site", "")
+    if not span or span <= 0:
+        span = 210
+    world_km = EARTH_KM * math.cos(math.radians(lat))
+    zoom = math.log2(VIEWPORT_PX / 256 * world_km / span)
+    zoom = max(3.0, min(14.0, zoom))
+    out = f"hookecho://goto/{site},{lon:.4f},{lat:.4f},{zoom:.1f}"
+    if state.get("scan") and state.get("live") is False:
+        out += "," + state["scan"]
+    return out
+
+
+def main(argv):
+    path = os.environ.get("OMASTORM_STATE", STATE)
+    try:
+        with open(path) as f:
+            state = json.load(f)
+    except FileNotFoundError:
+        print(f"No Omastorm view export at {path}: needs Omastorm ≥ the version that writes state.json (wesleygrimes/omastorm#52), opened once.", file=sys.stderr)
+        return 1
+    except (OSError, ValueError) as e:
+        print(f"Cannot read {path}: {e}", file=sys.stderr)
+        return 1
+    target = link(state)
+    if not target:
+        print("Omastorm has no view yet.", file=sys.stderr)
+        return 1
+    if "site" not in state:
+        print("Omastorm's export has no station: it predates wesleygrimes/omastorm#52. Opening on the centre only.", file=sys.stderr)
+    if "--print" in argv:
+        print(target)
+        return 0
+    if shutil.which("hookecho"):
+        subprocess.Popen(["hookecho", target], start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    elif shutil.which("xdg-open"):
+        subprocess.Popen(["xdg-open", target], start_new_session=True,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        print("HookEcho not found: put hookecho on PATH (scripts/install-hookecho.sh).", file=sys.stderr)
+        return 127
+    print(f"Opening {target}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

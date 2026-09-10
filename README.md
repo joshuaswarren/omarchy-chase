@@ -122,6 +122,24 @@ viewer state and its alert count, and Start/Stop for the session. The panel
 always shows the one thing to do next; `?` in its title row explains what
 this project is and what every glyph means. `Esc` closes it.
 
+## Hand-off: Omastorm to HookEcho
+
+Omastorm exports the view it is showing (`~/.local/state/omastorm/state.json`:
+centre, span, station, scan time, live or not — from
+`wesleygrimes/omastorm#52`). `chase-open` reads it, builds HookEcho's
+`hookecho://goto/SITE,lon,lat,zoom[,time]` link, and opens it: a live view
+opens live, a stepped-back frame opens on that scan. Omastorm itself opens
+nothing; the hand-off is a desktop action.
+
+```sh
+chase-open           # open Omastorm's view in HookEcho
+chase-open --print   # the link only
+```
+
+The panel's **Open in HookEcho** button runs the same thing. To bind it,
+in `~/.config/hypr/bindings.lua`:
+`o.bind("SUPER + SHIFT + O", "~/.config/omarchy/plugins/io.github.joshuaswarren.chase/bin/chase-open")`.
+
 ## Related
 
 - [Omastorm](https://github.com/wesleygrimes/omastorm), the Omarchy radar

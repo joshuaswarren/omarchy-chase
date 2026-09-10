@@ -42,6 +42,16 @@ Panel {
     sessionProcess.running = true
   }
 
+  // Hand Omastorm's view to HookEcho from outside Omastorm: bin/chase-open
+  // reads Omastorm's view export and opens HookEcho's deep link. Its one
+  // line of output (the link, or why not) lands in the note.
+  function handoff() {
+    if (sessionProcess.running || root.pluginDir === "") return
+    root.note = "…"
+    sessionProcess.command = ["python3", root.pluginDir + "/bin/chase-open"]
+    sessionProcess.running = true
+  }
+
   onOpenedChanged: if (root.opened) root.refresh()
 
   Timer { interval: 10000; repeat: true; running: root.opened; onTriggered: root.refresh() }
@@ -218,6 +228,11 @@ Panel {
           Button {
             text: "Stop"
             onClicked: root.session("stop")
+          }
+          Button {
+            text: "Open in HookEcho"
+            tooltipText: "Hand Omastorm's view on screen to HookEcho"
+            onClicked: root.handoff()
           }
         }
       }
