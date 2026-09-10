@@ -9,22 +9,28 @@ import sys
 
 HOST = os.environ.get("GPSD_HOST", "127.0.0.1")
 PORT = int(os.environ.get("GPSD_PORT", "2947"))
-TIMEOUT = float(os.environ.get("GPSD_TIMEOUT", "6"))
+TIMEOUT = float(os.environ.get("GPSD_TIMEOUT", "3"))
 
 
 def query():
-    """Return (devices, tpv) seen on the watch stream, either possibly empty."""
+    """Return (devices, tpv) seen on the watch stream, either possibly empty.
+
+    A receiver without a fix streams TPV mode=1 forever, so the socket
+    timeout alone never fires; a wall-clock deadline bounds the read and
+    the newest TPV wins."""
+    import time
     devices, tpv = [], None
+    deadline = time.monotonic() + TIMEOUT
     s = socket.create_connection((HOST, PORT), timeout=TIMEOUT)
     try:
-        s.settimeout(TIMEOUT)
+        s.settimeout(1.0)
         f = s.makefile("r")
         s.sendall(b'?WATCH={"enable":true,"json":true};')
-        while True:
+        while time.monotonic() < deadline:
             try:
                 line = f.readline()
             except (socket.timeout, TimeoutError):
-                break
+                continue
             if not line:
                 break
             try:

@@ -12,12 +12,17 @@ This is what step 2 was built and tested against.
 
 Caveats, all physical, none software:
 
-- Short cable (~1 m). Add a USB extension so the puck sits on the dash
-  with sky view while the laptop rides elsewhere.
+- **Plug it through a hub, not a bare laptop port.** On esper (Dell
+  Precision, xHCI) the puck enumerated on two different ports with
+  `can't set config #1, error -71` and never got a `/dev/ttyACM`; the same
+  unit was fine on a Mac and on esper through an Anker USB-C hub. The
+  cheap boards drive a marginal full-speed link that a hub re-drives.
+  `scripts/setup-gpsd.sh` names this fault when it sees it.
+- It ships with its cable attached (~1 m). That is enough to reach the
+  dash from a hub on the console; there is nothing to extend.
 - Needs real sky. First fix from cold can take minutes; a windowsill works,
   an interior room does not. Judge it only outdoors or on the dash.
-- USB-A plug. On USB-C-only machines add a plain data-capable adapter
-  (not charge-only).
+- USB-A plug. On USB-C-only machines the hub above covers it.
 
 ## Alternatives
 

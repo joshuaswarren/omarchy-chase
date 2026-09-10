@@ -24,15 +24,17 @@ def gps_state():
     except OSError:
         return {"state": "off"}
     try:
-        s.settimeout(3)
+        s.settimeout(1.0)
         f = s.makefile("r")
         s.sendall(b'?WATCH={"enable":true,"json":true};')
         devices, tpv = [], None
-        while True:
+        # No-fix receivers stream TPV mode=1 forever: bound by wall clock.
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
             try:
                 line = f.readline()
             except (socket.timeout, TimeoutError):
-                break
+                continue
             if not line:
                 break
             try:
