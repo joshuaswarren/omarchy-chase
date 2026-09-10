@@ -56,15 +56,20 @@ HookEcho ships `.deb`, AppImage, and Windows installers; Arch has no package
       `docs/technical-reference.md`.)
 - [x] Supercell Wx pointed at the same `gpsd` through the documented
       `gpspipe` and `socat` route, scripted so the user does not assemble it.
-      (`scripts/nmea-bridge.sh` serves NMEA on `127.0.0.1:2948`; Supercell
-      takes `socket://127.0.0.1:2948` as its NMEA network source, per its
-      settings docs and the Qt NMEA plugin contract.)
+      (`scripts/nmea-bridge.sh` serves NMEA on `127.0.0.1:2948`;
+      `scripts/configure-supercell.sh` writes the NMEA plugin, source and
+      Track Location into Supercell's `settings.json`. Live on esper
+      2026-09-10: Supercell logs `Using position source: nmea`, holds a TCP
+      session to the bridge, and the bridge streams `$GPGGA` with a fix.)
       If the maintainers agree, propose a direct `gpsd` source upstream and
       retire the script.
 - [ ] Receipt: both viewers follow the same moving position in a recorded
       drive, and a pulled receiver shows as lost in the status check.
-      Blocked on hardware (VK-162 arrives 2026-09-09) and on Supercell Wx
-      being installed. Receiver guide: `docs/gps-receivers.md`.
+      Have on esper 2026-09-10 with the VK-162 through a hub: first fix
+      `32.9906, -96.5993` at 11:42:50 from a windowsill; the bar reads
+      `● chase +` with the session up; Supercell is on the bridge. Still
+      owed: HookEcho's in-app "Connect GPS (gpsd)" click (not persisted —
+      upstream ask), the pulled-receiver check, and the drive.
 
 ## 3. Chase session and status in the bar
 

@@ -101,10 +101,13 @@ chase-gps                    # fix / no fix / no device (add bin/ to PATH)
 bash scripts/nmea-bridge.sh start  # NMEA on 127.0.0.1:2948 for Supercell Wx
 ```
 
-HookEcho reads `gpsd` itself (its "Connect GPS (gpsd)" button, daemon on
-`:2947` — no setup beyond a running daemon). Supercell Wx takes an NMEA
-network source instead: File > Settings > General > GPS Plugin > NMEA >
-`socket://127.0.0.1:2948`.
+HookEcho reads `gpsd` itself: in the app, Chase tab → "Connect GPS (gpsd)"
+(daemon on `:2947`; the connection is not remembered between launches —
+proposed upstream). Supercell Wx takes an NMEA network source; with
+Supercell closed, `bash scripts/configure-supercell.sh` writes
+`positioning_plugin = nmea`, `nmea_source = socket://127.0.0.1:2948` and
+turns Track Location on in its `settings.json`, which is what its
+File > Settings > General > GPS Plugin dialog would set by hand.
 
 ## The bar widget
 
