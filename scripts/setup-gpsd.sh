@@ -19,6 +19,31 @@ if ! pacman -Q gpsd >/dev/null 2>&1; then
   sudo pacman -S --needed --noconfirm gpsd || die "gpsd install failed."
 fi
 
+# A u-blox puck is a CDC-ACM device. Arch does not always autoload that
+# module, and without it the receiver enumerates on the USB bus with no
+# interfaces and no /dev/ttyACM node — the failure looks like a dead
+# receiver. Load it and make the load persist across reboots.
+if ! compgen -G '/dev/ttyACM*' > /dev/null && lsusb 2>/dev/null | grep -qi 'u-blox'; then
+  echo "u-blox receiver present with no /dev/ttyACM — loading cdc_acm (sudo)…"
+  sudo modprobe cdc_acm || die "Could not load cdc_acm."
+  printf 'cdc_acm\n' | sudo tee /etc/modules-load.d/omarchy-chase-gps.conf > /dev/null
+  for _ in {1..10}; do compgen -G '/dev/ttyACM*' > /dev/null && break; sleep 0.5; done
+  if ! compgen -G '/dev/ttyACM*' > /dev/null; then
+    # -71 (EPROTO) on the config set is electrical, not driver: a flaky
+    # cable, an underpowered or fussy xHCI port. Say so, because "reseat
+    # the receiver" sends people hunting for a software fix that does not
+    # exist.
+    if journalctl -k -S -30min --no-pager 2>/dev/null | grep -qE "usb .*(can't set config|device descriptor read).*(-71|error)"; then
+      die "The receiver enumerates but the port cannot configure it (kernel error -71)." \
+        "That is a cable or port fault, not a driver one. In order:" \
+        "  1. Move it to a different USB port (a USB-2 port, or through a powered hub)." \
+        "  2. Use the USB extension cable rather than the bare plug." \
+        "  3. Re-run this script; check with: journalctl -k -g 'usb 1-' | tail"
+    fi
+    die "cdc_acm is loaded but no /dev/ttyACM appeared. Reseat the receiver and re-run."
+  fi
+fi
+
 echo "Enabling gpsd.socket (sudo)…"
 sudo systemctl enable --now gpsd.socket || die "Could not enable gpsd.socket."
 
