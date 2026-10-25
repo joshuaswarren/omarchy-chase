@@ -1,164 +1,115 @@
 # omarchy-chase
 
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink)](https://github.com/sponsors/joshuaswarren)
+Storm-chasing tools for the [Omarchy](https://omarchy.org) desktop. Install
+HookEcho, share a GPS receiver through `gpsd`, and see GPS, network and viewer
+state in the bar. Radar decoding and weather data stay in the weather apps.
 
-Storm-chasing glue for the [Omarchy](https://omarchy.org) desktop. Not a radar
-app. It installs, configures, and connects the weather tools that already
-exist, and shows the device and network state a chaser needs beside them.
+This is an early beta. The HookEcho installer, GPS setup and session panel
+are implemented. See the [roadmap](ROADMAP.md) for remaining work.
 
-Status: planning. Nothing here is installable yet. The roadmap is in
-[ROADMAP.md](ROADMAP.md).
-
-## What it is for
-
-A chase laptop runs several programs and devices at once: a radar viewer, a
-GPS receiver, a cellular or tethered connection, a recording setup, sometimes
-a radio. Each program is good at its own job on any desktop. What is missing
-is the part that only makes sense on this desktop: getting them installed
-together, pointed at the same GPS, aware of the same network condition, and
-started and stopped as one session.
-
-That part is this repository. The weather work itself goes upstream.
-
-## The three pieces
-
-| Responsibility | Where it lives |
-| --- | --- |
-| Decode radar, render products, handle warnings, cache weather data | The chosen weather viewer, [HookEcho](https://github.com/d4vid87/hookecho) first, with [Supercell Wx](https://supercell-wx.readthedocs.io) as the comparison |
-| The quick, native radar view in the bar, and the hand-off to a fuller viewer | [Omastorm](https://github.com/wesleygrimes/omastorm) |
-| Install and configure the chosen tools, prepare workspaces, show GPS and network status, start and stop a chase session | omarchy-chase |
-
-The dividing question for any feature:
-
-> Would this still make sense for someone using the weather viewer on another
-> desktop?
-
-If yes, it belongs upstream in that viewer. If it is about how several
-programs and devices work together on Omarchy, it belongs here. Some needs
-split: the desktop exposes a condition (a metered connection), the viewer owns
-how its fetching responds.
-
-## What it will not do
-
-- Decode or render radar. No second engine, no shared weather daemon. A daemon
-  becomes worth proposing only when two real consumers need the same
-  capability and the viewer's own export cannot supply it.
-- Screen-scrape a viewer or read its private files. State that the bar needs
-  and the viewer does not export gets added upstream as a supported export,
-  then consumed here.
-- Support every viewer through an adapter framework. One viewer is supported
-  at a time; the boundary stays clean enough to add a second when a real need
-  appears.
-- Write Omarchy or system configuration silently. The same rule Omastorm
-  follows: read theme and settings, write only under this project's own
-  directories, and print any line the user must add by hand.
-
-## Interfaces it builds on
-
-HookEcho exposes, as documented in its
-[technical reference](https://github.com/d4vid87/hookecho/blob/main/docs/technical-reference.md):
-
-- `hookecho://goto/SITE,lon,lat,zoom[,time]` deep links, registered on
-  Linux through `x-scheme-handler/hookecho` in its `.desktop` file, and
-  accepted as an argument that a running instance takes over.
-- `hookecho --serve` with `/status.json`, `/alerts.json`, `/obs.json`, and
-  `hookecho --status --json`.
-- Desktop `gpsd` support, chase mode, offline basemap packs, saved
-  workspaces.
-
-Supercell Wx documents GPS through an operating-system provider or an external
-NMEA source; its `gpsd` route needs `gpspipe` and `socat`, which is the kind of
-setup friction this project exists to remove.
-
-Each of these is a documented interface, verified against source before it is
-relied on. Where one turns out not to carry what the desktop needs, the fix is
-an upstream issue or pull request, recorded in the roadmap.
-
-## Install
-
-HookEcho (pinned in `hookecho.release.pin`, verified by sha256 on every
-install):
-
-```sh
-bash scripts/install-hookecho.sh
-```
-
-This places the AppImage under `~/.local/share/omarchy-chase/bin`, links
-`hookecho` on PATH through `~/.local/bin`, and registers a `.desktop`
-entry for `x-scheme-handler/hookecho` so `hookecho://goto/` links open it.
-Remove symmetrically:
-
-```sh
-bash scripts/install-hookecho.sh --remove
-```
-
-## GPS
-
-One receiver feeds every viewer through `gpsd`. Recommended hardware and
-what to avoid: `docs/gps-receivers.md`.
-
-```sh
-bash scripts/setup-gpsd.sh   # install gpsd, enable it, wait for the receiver
-chase-gps                    # fix / no fix / no device (add bin/ to PATH)
-bash scripts/nmea-bridge.sh start  # NMEA on 127.0.0.1:2948 for Supercell Wx
-```
-
-HookEcho reads `gpsd` itself: in the app, Chase tab → "Connect GPS (gpsd)"
-(daemon on `:2947`; the connection is not remembered between launches —
-proposed upstream). Supercell Wx takes an NMEA network source; with
-Supercell closed, `bash scripts/configure-supercell.sh` writes
-`positioning_plugin = nmea`, `nmea_source = socket://127.0.0.1:2948` and
-turns Track Location on in its `settings.json`, which is what its
-File > Settings > General > GPS Plugin dialog would set by hand.
-
-## The bar widget
+## Install the bar widget
 
 ```sh
 omarchy plugin add https://github.com/joshuaswarren/omarchy-chase --enable
 ```
 
-The widget reads `● chase +`: a filled dot while a session is running, then
-the GPS mark — `+` fix, `…` acquiring, `×` no receiver, `–` gpsd off.
-Clicking it opens the session panel: GPS, network (with metered flag),
-viewer state and its alert count, and Start/Stop for the session. The panel
-always shows the one thing to do next; `?` in its title row explains what
-this project is and what every glyph means. `Esc` closes it.
+Click the widget to open the session panel. It shows GPS, network, metered
+connection status, viewer state and alert count, with session Start/Stop
+controls. Press `Esc` to close it; `?` explains the panel and its symbols.
 
-## Hand-off: Omastorm to HookEcho
+The GPS mark is `+` for a fix, `…` while acquiring, `×` for no receiver and
+a dash when gpsd is off. The filled dot indicates a running session.
 
-Omastorm exports the view it is showing (`~/.local/state/omastorm/state.json`:
-centre, span, station, scan time, live or not — from
-`wesleygrimes/omastorm#52`). `chase-open` reads it, builds HookEcho's
-`hookecho://goto/SITE,lon,lat,zoom[,time]` link, and opens it: a live view
-opens live, a stepped-back frame opens on that scan. Omastorm itself opens
-nothing; the hand-off is a desktop action.
+## Install HookEcho
+
+The pinned HookEcho AppImage is **x86_64 only**. The install script refuses
+other architectures. It checks the download against the SHA256 in
+[`hookecho.release.pin`](hookecho.release.pin).
+
+For the setup scripts, clone this repository and run commands from its root:
 
 ```sh
-chase-open           # open Omastorm's view in HookEcho
-chase-open --print   # the link only
+git clone https://github.com/joshuaswarren/omarchy-chase.git
+cd omarchy-chase
+bash scripts/install-hookecho.sh
 ```
 
-The panel's **Open in HookEcho** button runs the same thing. To bind it,
-in `~/.config/hypr/bindings.lua`:
-`o.bind("SUPER + SHIFT + O", "~/.config/omarchy/plugins/io.github.joshuaswarren.chase/bin/chase-open")`.
+The default install puts the AppImage under `~/.local/share/omarchy-chase/bin`,
+links `~/.local/bin/hookecho`, and registers the `hookecho://` URL handler.
+The data directory follows `XDG_DATA_HOME` if set.
 
-## Related
+To remove those installed files:
 
-- [Omastorm](https://github.com/wesleygrimes/omastorm), the Omarchy radar
-  plugin this project hands off from.
-- [HookEcho](https://github.com/d4vid87/hookecho), the first supported
-  full viewer.
-- [Supercell Wx](https://github.com/dpaulat/supercell-wx), the comparison
-  and fallback.
+```sh
+bash scripts/install-hookecho.sh --remove
+```
+
+## Set up GPS
+
+Use one receiver through `gpsd` so viewers can share it. See
+[GPS receiver notes](docs/gps-receivers.md) for hardware and USB advice.
+
+```sh
+bash scripts/setup-gpsd.sh
+./bin/chase-gps
+```
+
+This script uses `sudo`: it installs `gpsd` with pacman if missing and enables
+`gpsd.socket`. For a detected u-blox receiver without a device node, it also
+loads `cdc_acm` and writes `/etc/modules-load.d/omarchy-chase-gps.conf` so the
+module loads on later boots. Review the [script](scripts/setup-gpsd.sh) before
+running it. If USB hotplug misses the receiver, pass its actual device path:
+
+```sh
+bash scripts/setup-gpsd.sh /dev/ttyACM0
+```
+
+In HookEcho, choose Chase > Connect GPS (gpsd). The daemon uses port 2947.
+
+### Supercell Wx
+
+The NMEA bridge supplies a loopback network source for Supercell Wx:
+
+```sh
+bash scripts/nmea-bridge.sh start
+```
+
+Launch Supercell Wx once, then **close it** before configuring it:
+
+```sh
+bash scripts/configure-supercell.sh
+```
+
+This rewrites its `settings.json`: GPS plugin `nmea`, source
+`socket://127.0.0.1:2948`, and Track Location enabled. The default file is
+`~/.local/share/Supercell Wx/settings.json`; `SCWX_SETTINGS` overrides it.
+The script refuses to proceed while a `supercell-wx` process is running.
+
+## Open Omastorm's view in HookEcho
+
+With [Omastorm](https://github.com/wesleygrimes/omastorm) exporting its view to
+`~/.local/state/omastorm/state.json`, run:
+
+```sh
+./bin/chase-open
+./bin/chase-open --print   # show the deep link without opening it
+```
+
+The panel's Open in HookEcho button uses the same command. A live view
+opens live; a historical frame includes its scan time in the deep link.
+Omastorm itself does not launch the other viewer.
+
+## Related projects
+
+- [HookEcho](https://github.com/d4vid87/hookecho): the first supported full viewer.
+- [Omastorm](https://github.com/wesleygrimes/omastorm): the native radar view in the bar.
+- [Supercell Wx](https://github.com/dpaulat/supercell-wx): another weather viewer.
 
 ## Support
 
-Every bit of support helps keep omarchy-chase alive and free. If you are able, [sponsor on GitHub](https://github.com/sponsors/joshuaswarren) or send a Lightning donation to `joshuaswarren@strike.me` to directly fund continued development and new integrations.
-
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?style=for-the-badge)](https://github.com/sponsors/joshuaswarren)
-
-If financial support is not an option, you can still make a big difference: [star the repo](https://github.com/joshuaswarren/omarchy-chase), share it, or recommend it to a colleague. Word of mouth is how most people find omarchy-chase.
+[Sponsor on GitHub](https://github.com/sponsors/joshuaswarren) or use the
+existing Lightning address `joshuaswarren@strike.me`.
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
