@@ -5,7 +5,7 @@ HookEcho, share a GPS receiver through `gpsd`, and see GPS, network and viewer
 state in the bar. Radar decoding and weather data stay in the weather apps.
 
 This is an early beta. The HookEcho installer, GPS setup and session panel
-are implemented. See the [roadmap](ROADMAP.md) for remaining work.
+are implemented.
 
 ## Install the bar widget
 
